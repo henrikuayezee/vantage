@@ -1,0 +1,25 @@
+{
+  "cookies": [
+    {
+      "name": "vantage_refresh",
+      "value": "6049f6c54179ecccc1940eb95205ba7b9637187a86c3c5aed62368dd78faecce",
+      "domain": "localhost",
+      "path": "/api/auth",
+      "expires": 1780339455.72792,
+      "httpOnly": true,
+      "secure": false,
+      "sameSite": "Strict"
+    },
+    {
+      "name": "vantage_session",
+      "value": "1",
+      "domain": "localhost",
+      "path": "/",
+      "expires": -1,
+      "httpOnly": false,
+      "secure": false,
+      "sameSite": "Strict"
+    }
+  ],
+  "origins": []
+}
