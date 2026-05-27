@@ -22,5 +22,7 @@ COPY apps/api/package.json ./apps/api/
 RUN --mount=type=cache,id=pnpm,target=/pnpm/store pnpm install --frozen-lockfile --prod
 COPY --from=builder /app/apps/api/dist ./apps/api/dist
 COPY --from=builder /app/apps/api/prisma ./apps/api/prisma
+COPY apps/api/docker-entrypoint.sh ./docker-entrypoint.sh
+RUN chmod +x ./docker-entrypoint.sh
 EXPOSE 3001
-CMD ["node", "apps/api/dist/main"]
+CMD ["./docker-entrypoint.sh"]

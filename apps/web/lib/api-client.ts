@@ -15,7 +15,7 @@ interface RefreshResponse {
 }
 
 export const apiClient = axios.create({
-  baseURL: process.env.NEXT_PUBLIC_API_URL ?? 'http://localhost:3001',
+  baseURL: '/api',      // proxied by Next.js → NestJS (see next.config.ts rewrites)
   withCredentials: true, // needed for refresh-token httpOnly cookie
   headers: { 'Content-Type': 'application/json' },
 });
