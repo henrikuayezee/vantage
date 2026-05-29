@@ -1,0 +1,26 @@
+services:
+  - type: web
+    name: vantage-api
+    runtime: node
+    plan: free
+    buildCommand: pnpm install --frozen-lockfile && pnpm --filter @vantage/api build
+    startCommand: cd apps/api && npx prisma db push --schema=prisma/schema.prisma --skip-generate && cd ../.. && node apps/api/dist/main
+    envVars:
+      - key: NODE_ENV
+        value: production
+      - key: JWT_ACCESS_EXPIRES_IN
+        value: 15m
+      - key: JWT_REFRESH_EXPIRES_IN
+        value: 7d
+      - key: DATABASE_URL
+        sync: false
+      - key: JWT_PRIVATE_KEY
+        sync: false
+      - key: JWT_PUBLIC_KEY
+        sync: false
+      - key: FRONTEND_URL
+        sync: false
+      - key: RESEND_API_KEY
+        sync: false
+      - key: EMAIL_FROM
+        sync: false
