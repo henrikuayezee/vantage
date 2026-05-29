@@ -3,7 +3,7 @@ services:
     name: vantage-api
     runtime: node
     plan: free
-    buildCommand: pnpm install --frozen-lockfile && pnpm --filter @vantage/api build
+    buildCommand: pnpm install --frozen-lockfile && pnpm --filter @vantage/types build && npx prisma generate --schema=apps/api/prisma/schema.prisma && pnpm --filter @vantage/api build
     startCommand: cd apps/api && npx prisma db push --schema=prisma/schema.prisma --skip-generate && cd ../.. && node apps/api/dist/main
     envVars:
       - key: NODE_ENV
