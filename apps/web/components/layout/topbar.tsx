@@ -1,25 +1,46 @@
 'use client';
 
 import { useState } from 'react';
-import { Bell, Search, Sun, Moon } from 'lucide-react';
+import { useRouter } from 'next/navigation';
+import { Bell, Search, Sun, Moon, User, LogOut } from 'lucide-react';
 import { useQuery } from '@tanstack/react-query';
 import { Button } from '@/components/ui/button';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
+import {
+  DropdownMenu,
+  DropdownMenuTrigger,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuDestructiveItem,
+  DropdownMenuLabel,
+  DropdownMenuSeparator,
+} from '@/components/ui/dropdown-menu';
 import { useAuthStore } from '@/stores/auth-store';
 import { useUiStore } from '@/stores/ui-store';
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip';
 import { NotificationsPanel } from '@/components/notifications/notifications-panel';
 import { notificationsApi } from '@/lib/notifications-api';
+import { authApi } from '@/lib/auth-api';
 
 interface TopbarProps {
   breadcrumb?: React.ReactNode;
 }
 
 export function Topbar({ breadcrumb }: TopbarProps) {
+  const router = useRouter();
   const user = useAuthStore((s) => s.user);
+  const clearAuth = useAuthStore((s) => s.clearAuth);
   const theme = useUiStore((s) => s.theme);
   const toggleTheme = useUiStore((s) => s.toggleTheme);
   const [showNotifications, setShowNotifications] = useState(false);
+
+  const handleLogout = () => {
+    authApi.logout().catch(() => {});
+    clearAuth();
+    router.replace('/login');
+  };
+
+  const fullName = user ? `${user.firstName} ${user.lastName}`.trim() : 'Vantage User';
 
   const { data: countData } = useQuery({
     queryKey: ['notifications-count'],
@@ -112,11 +133,36 @@ export function Topbar({ breadcrumb }: TopbarProps) {
           )}
         </div>
 
-        {/* User avatar */}
-        <Avatar className="h-7 w-7 cursor-pointer">
-          {user?.avatarUrl && <AvatarImage src={user.avatarUrl} alt={initials} />}
-          <AvatarFallback className="text-xs">{initials}</AvatarFallback>
-        </Avatar>
+        {/* User avatar + account menu */}
+        <DropdownMenu>
+          <DropdownMenuTrigger asChild>
+            <Avatar className="h-7 w-7 cursor-pointer" aria-label="Account menu">
+              {user?.avatarUrl && <AvatarImage src={user.avatarUrl} alt={initials} />}
+              <AvatarFallback className="text-xs">{initials}</AvatarFallback>
+            </Avatar>
+          </DropdownMenuTrigger>
+          <DropdownMenuContent align="end" className="min-w-[12rem]">
+            <DropdownMenuLabel className="normal-case">
+              <span className="block truncate text-sm font-medium text-[var(--text)]">
+                {fullName}
+              </span>
+              {user?.email && (
+                <span className="block truncate text-xs font-normal text-[var(--text-muted)]">
+                  {user.email}
+                </span>
+              )}
+            </DropdownMenuLabel>
+            <DropdownMenuSeparator />
+            <DropdownMenuItem onSelect={() => router.push('/settings/profile')}>
+              <User className="h-4 w-4 text-[var(--text-muted)]" />
+              Profile settings
+            </DropdownMenuItem>
+            <DropdownMenuDestructiveItem onSelect={handleLogout}>
+              <LogOut className="h-4 w-4" />
+              Sign out
+            </DropdownMenuDestructiveItem>
+          </DropdownMenuContent>
+        </DropdownMenu>
       </div>
     </header>
   );
