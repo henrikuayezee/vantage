@@ -33,7 +33,7 @@ const DAY_PX: Record<Zoom, number> = { day: 40, week: 10, month: 3 };
 const PAD_DAYS: Record<Zoom, number> = { day: 3, week: 7, month: 21 };
 const ROW_H = 44;
 const HDR_H = 50;
-const NAME_COL = 224;
+const NAME_COL = 264;
 const BAR_H = 22;
 const BAR_TOP = (ROW_H - BAR_H) / 2;
 
@@ -43,6 +43,22 @@ const BAR_COLOR: Record<string, string> = {
   [TaskStatus.IN_PROGRESS]: '#0D7A75',
   [TaskStatus.REVIEW]:      '#f59e0b',
   [TaskStatus.DONE]:        '#10b981',
+};
+
+const STATUS_LABEL: Record<string, string> = {
+  [TaskStatus.BACKLOG]:     'Backlog',
+  [TaskStatus.TODO]:        'To do',
+  [TaskStatus.IN_PROGRESS]: 'In progress',
+  [TaskStatus.REVIEW]:      'Review',
+  [TaskStatus.DONE]:        'Done',
+};
+
+const STATUS_PILL_STYLE: Record<string, React.CSSProperties> = {
+  [TaskStatus.BACKLOG]:     { background: 'var(--surface-2)',            color: '#64748b' },
+  [TaskStatus.TODO]:        { background: 'var(--surface-2)',            color: '#475569' },
+  [TaskStatus.IN_PROGRESS]: { background: 'var(--status-progress-bg)',   color: 'var(--status-progress)' },
+  [TaskStatus.REVIEW]:      { background: 'var(--status-review-bg)',     color: 'var(--status-review)' },
+  [TaskStatus.DONE]:        { background: 'var(--status-done-bg)',       color: 'var(--status-done)' },
 };
 
 function getBarStyle(status: string): React.CSSProperties {
@@ -200,7 +216,7 @@ export function GanttChart({ projectId }: Props) {
   return (
     <div className="space-y-3">
       {/* Toolbar */}
-      <div className="flex items-center gap-2">
+      <div className="flex flex-wrap items-center gap-x-3 gap-y-2">
         <div className="flex rounded-lg border border-[var(--border)] overflow-hidden">
           {(['day', 'week', 'month'] as Zoom[]).map((z) => (
             <button
@@ -220,7 +236,21 @@ export function GanttChart({ projectId }: Props) {
         <Button variant="ghost" size="sm" className="h-8 text-xs" onClick={scrollToToday}>
           Today
         </Button>
-        <span className="ml-auto text-[10px] text-[var(--text-muted)]">
+
+        {/* Status legend */}
+        <div className="flex items-center gap-3 flex-wrap">
+          {(Object.entries(STATUS_LABEL) as [string, string][]).map(([status, label]) => (
+            <span key={status} className="flex items-center gap-1">
+              <span
+                className="inline-block h-2 w-2 rounded-full shrink-0"
+                style={{ background: BAR_COLOR[status] }}
+              />
+              <span className="text-[10px] text-[var(--text-muted)]">{label}</span>
+            </span>
+          ))}
+        </div>
+
+        <span className="ml-auto text-[10px] text-[var(--text-muted)] hidden sm:block">
           Read-only · click a bar to open task
         </span>
       </div>
@@ -359,7 +389,13 @@ export function GanttChart({ projectId }: Props) {
                     style={{ width: NAME_COL }}
                   >
                     <span className={cn('h-2 w-2 rounded-full shrink-0', PRIORITY_DOT[task.priority])} />
-                    <span className="text-xs text-[var(--text)] truncate">{task.title}</span>
+                    <span className="text-xs text-[var(--text)] truncate flex-1 min-w-0">{task.title}</span>
+                    <span
+                      className="shrink-0 rounded px-1.5 py-0.5 text-[9px] font-semibold leading-tight uppercase tracking-wide"
+                      style={STATUS_PILL_STYLE[task.status] ?? STATUS_PILL_STYLE[TaskStatus.TODO]}
+                    >
+                      {STATUS_LABEL[task.status] ?? task.status}
+                    </span>
                   </div>
 
                   {/* Timeline cell */}
