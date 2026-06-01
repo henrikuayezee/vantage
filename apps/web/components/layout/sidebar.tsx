@@ -146,10 +146,10 @@ export function Sidebar() {
           </Avatar>
           {!collapsed && (
             <div className="min-w-0">
-              <p className="text-xs font-medium text-[var(--text)] truncate">
+              <p className="text-xs font-medium text-[var(--text)] truncate" title={user ? `${user.firstName} ${user.lastName}` : undefined}>
                 {user ? `${user.firstName} ${user.lastName}` : '—'}
               </p>
-              <p className="text-[10px] text-[var(--text-muted)] truncate">{user?.email}</p>
+              <p className="text-[10px] text-[var(--text-muted)] truncate" title={user?.email}>{user?.email}</p>
             </div>
           )}
         </div>

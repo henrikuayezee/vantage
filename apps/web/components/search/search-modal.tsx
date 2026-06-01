@@ -169,7 +169,7 @@ export function SearchModal() {
                         onClick={() => navigate(item)}
                       >
                         <FolderKanban className="h-4 w-4 shrink-0 text-[var(--text-muted)]" />
-                        <span className="flex-1 text-sm text-[var(--text)] truncate">
+                        <span className="flex-1 text-sm text-[var(--text)] truncate" title={item.name}>
                           {item.name}
                         </span>
                         <span className="text-[10px] text-[var(--text-muted)]">
@@ -211,8 +211,8 @@ export function SearchModal() {
                         />
                         <CheckSquare className="h-4 w-4 shrink-0 text-[var(--text-muted)]" />
                         <div className="flex-1 min-w-0">
-                          <p className="text-sm text-[var(--text)] truncate">{item.title}</p>
-                          <p className="text-[10px] text-[var(--text-muted)] truncate">
+                          <p className="text-sm text-[var(--text)] truncate" title={item.title}>{item.title}</p>
+                          <p className="text-[10px] text-[var(--text-muted)] truncate" title={item.projectName}>
                             {item.projectName}
                           </p>
                         </div>

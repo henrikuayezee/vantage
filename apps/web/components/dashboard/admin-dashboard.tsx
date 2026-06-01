@@ -57,7 +57,7 @@ function ProjectRow({ project, onClick }: { project: RecentProject; onClick: () 
 
       {/* Name + progress */}
       <div className="flex-1 min-w-0">
-        <p className="text-[13px] font-medium text-[var(--text)] truncate group-hover:text-[var(--primary)] transition-colors">
+        <p className="text-[13px] font-medium text-[var(--text)] truncate group-hover:text-[var(--primary)] transition-colors" title={project.name}>
           {project.name}
         </p>
         <div className="flex items-center gap-2 mt-1">

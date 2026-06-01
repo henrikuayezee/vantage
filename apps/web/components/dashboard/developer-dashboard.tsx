@@ -75,7 +75,7 @@ function UpcomingTaskRow({ task, onClick }: { task: AssignedTask; onClick: () =>
         className="h-[7px] w-[7px] rounded-full shrink-0"
         style={{ background: statusColor, opacity: 0.75 }}
       />
-      <span className="flex-1 min-w-0 text-[13px] font-medium text-[var(--text)] truncate group-hover:text-[var(--primary)] transition-colors">
+      <span className="flex-1 min-w-0 text-[13px] font-medium text-[var(--text)] truncate group-hover:text-[var(--primary)] transition-colors" title={task.title}>
         {task.title}
       </span>
       <TaskPriorityBadge priority={task.priority} compact />

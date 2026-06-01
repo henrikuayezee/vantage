@@ -198,7 +198,7 @@ function MilestoneRow({
 
       <div className="flex-1 min-w-0">
         <div className="flex items-center justify-between gap-2 mb-1.5">
-          <span className="text-sm font-medium text-[var(--text)] truncate">{ms.title}</span>
+          <span className="text-sm font-medium text-[var(--text)] truncate" title={ms.title}>{ms.title}</span>
           <span
             className={cn(
               'text-[10px] font-medium shrink-0',

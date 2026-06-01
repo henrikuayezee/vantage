@@ -59,7 +59,7 @@ function ProjectRow({ project, onClick }: { project: ProjectMeta; onClick: () =>
       {/* Name + progress */}
       <div className="flex-1 min-w-0">
         <div className="flex items-center gap-1.5">
-          <p className="text-[13px] font-medium text-[var(--text)] truncate group-hover:text-[var(--primary)] transition-colors">
+          <p className="text-[13px] font-medium text-[var(--text)] truncate group-hover:text-[var(--primary)] transition-colors" title={project.name}>
             {project.name}
           </p>
           {project.atRisk && (
@@ -116,8 +116,8 @@ function MilestoneItem({ milestone }: { milestone: UpcomingMilestone }) {
 
       {/* Title + project */}
       <div className="flex-1 min-w-0">
-        <p className="text-[13px] font-medium text-[var(--text)] truncate">{milestone.title}</p>
-        <p className="text-[10px] text-[var(--text-muted)] truncate mt-0.5">{milestone.project.name}</p>
+        <p className="text-[13px] font-medium text-[var(--text)] truncate" title={milestone.title}>{milestone.title}</p>
+        <p className="text-[10px] text-[var(--text-muted)] truncate mt-0.5" title={milestone.project.name}>{milestone.project.name}</p>
       </div>
 
       {/* Date + urgency */}

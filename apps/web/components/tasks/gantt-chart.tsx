@@ -389,7 +389,7 @@ export function GanttChart({ projectId }: Props) {
                     style={{ width: NAME_COL }}
                   >
                     <span className={cn('h-2 w-2 rounded-full shrink-0', PRIORITY_DOT[task.priority])} />
-                    <span className="text-xs text-[var(--text)] truncate flex-1 min-w-0">{task.title}</span>
+                    <span className="text-xs text-[var(--text)] truncate flex-1 min-w-0" title={task.title}>{task.title}</span>
                     <span
                       className="shrink-0 rounded px-1.5 py-0.5 text-[9px] font-semibold leading-tight uppercase tracking-wide"
                       style={STATUS_PILL_STYLE[task.status] ?? STATUS_PILL_STYLE[TaskStatus.TODO]}
@@ -462,7 +462,7 @@ export function GanttChart({ projectId }: Props) {
                     style={{ width: NAME_COL }}
                   >
                     <span className="text-xs" style={{ color: ms.color ?? 'var(--primary)' }}>◆</span>
-                    <span className="text-xs text-[var(--text-muted)] italic truncate">{ms.title}</span>
+                    <span className="text-xs text-[var(--text-muted)] italic truncate" title={ms.title}>{ms.title}</span>
                   </div>
 
                   {/* Diamond */}

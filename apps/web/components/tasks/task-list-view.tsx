@@ -226,6 +226,7 @@ function TaskRow({
             'text-[13px] font-medium truncate transition-colors group-hover:text-[var(--primary)]',
             isDone ? 'line-through text-[var(--text-muted)]' : 'text-[var(--text)]',
           )}
+          title={task.title}
         >
           {task.title}
         </span>
