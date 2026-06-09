@@ -1,4 +1,4 @@
-import { Injectable, NotFoundException, ForbiddenException, Logger } from '@nestjs/common';
+import { Injectable, NotFoundException, ForbiddenException, BadRequestException, Logger } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
 import { NotificationsService } from '../notifications/notifications.service';
 import { NotificationType } from '@prisma/client';
@@ -51,9 +51,9 @@ export class CommentsService {
       throw new ForbiddenException('Not a project member');
     }
 
-    // Strip HTML to prevent XSS
-    const sanitized = body.replace(/<[^>]*>/g, '').trim();
-    if (!sanitized) throw new ForbiddenException('Comment cannot be empty');
+    // Strip HTML tags including unclosed/malformed ones (e.g. `<img onerror=... ` with no closing `>`)
+    const sanitized = body.replace(/<[^>]*>?/g, '').trim();
+    if (!sanitized) throw new BadRequestException('Comment cannot be empty');
 
     const comment = await this.prisma.comment.create({
       data: { organizationId, taskId, body: sanitized, authorId },

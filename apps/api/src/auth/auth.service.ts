@@ -7,7 +7,7 @@ import {
 } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { JwtService } from '@nestjs/jwt';
-import { randomBytes } from 'crypto';
+import { randomBytes, createHash } from 'crypto';
 import * as bcrypt from 'bcrypt';
 import { PrismaService } from '../prisma/prisma.service';
 import { EmailService } from '../email/email.service';
@@ -54,14 +54,6 @@ export class AuthService {
   async refresh(rawToken: string) {
     if (!rawToken) throw new UnauthorizedException('No refresh token');
 
-    const tokenHash = await bcrypt.hash(rawToken, BCRYPT_ROUNDS);
-    // We store the hash — need to find by comparing. Since we can't query by hash,
-    // we embed the userId in the cookie as well.
-    // Instead: find all tokens for userId, compare each. We embed userId in a separate cookie.
-    // Simpler approach: store a lookup identifier (first 16 bytes) alongside the hash.
-    // Architecture decision: store sha256 of token as tokenHash (cheaper than bcrypt for lookup).
-    // We use SHA-256 for refresh token storage (fast lookup), bcrypt only for passwords.
-    const { createHash } = await import('crypto');
     const sha = createHash('sha256').update(rawToken).digest('hex');
 
     const stored = await this.prisma.refreshToken.findUnique({ where: { tokenHash: sha } });
@@ -76,16 +68,14 @@ export class AuthService {
     });
     if (!user || !user.isActive) throw new UnauthorizedException('User inactive');
 
-    // Rotate — delete old, issue new
-    await this.prisma.refreshToken.delete({ where: { id: stored.id } });
-    return this.issueTokens(user.id, user.organizationId, user.email, user.role, user.tokenVersion);
+    // Rotate atomically: delete old token and create new one in a single transaction
+    return this.issueTokens(user.id, user.organizationId, user.email, user.role, user.tokenVersion, stored.id);
   }
 
   // ─── Logout ──────────────────────────────────────────────────────────────────
 
   async logout(rawToken: string) {
     if (!rawToken) return;
-    const { createHash } = await import('crypto');
     const sha = createHash('sha256').update(rawToken).digest('hex');
     await this.prisma.refreshToken.deleteMany({ where: { tokenHash: sha } }).catch(() => null);
   }
@@ -108,7 +98,6 @@ export class AuthService {
     if (!user) return;
 
     const raw = randomBytes(32).toString('hex');
-    const { createHash } = await import('crypto');
     const sha = createHash('sha256').update(raw).digest('hex');
 
     // Reuse invite_tokens table for password reset (same pattern)
@@ -126,7 +115,6 @@ export class AuthService {
   }
 
   async resetPassword(dto: ResetPasswordDto) {
-    const { createHash } = await import('crypto');
     const sha = createHash('sha256').update(dto.token).digest('hex');
 
     const record = await this.prisma.inviteToken.findFirst({
@@ -141,15 +129,22 @@ export class AuthService {
     });
     if (!user) throw new NotFoundException('User not found');
 
+    // Compute hash before acquiring the token claim — bcrypt is slow and must not hold a DB connection
     const passwordHash = await bcrypt.hash(dto.password, BCRYPT_ROUNDS);
+
+    // Atomically claim the token — concurrent resets get count=0 and are rejected gracefully
+    const claimed = await this.prisma.inviteToken.updateMany({
+      where: { id: record.id, usedAt: null, expiresAt: { gte: new Date() } },
+      data: { usedAt: new Date() },
+    });
+    if (claimed.count === 0) {
+      throw new BadRequestException('Reset link has already been used');
+    }
+
     await this.prisma.$transaction([
       this.prisma.user.update({
         where: { id: user.id },
         data: { passwordHash, tokenVersion: { increment: 1 } },
-      }),
-      this.prisma.inviteToken.update({
-        where: { id: record.id },
-        data: { usedAt: new Date() },
       }),
       this.prisma.refreshToken.deleteMany({ where: { userId: user.id } }),
     ]);
@@ -170,7 +165,6 @@ export class AuthService {
     if (existing) throw new ConflictException('User already exists in this organization');
 
     const raw = randomBytes(32).toString('hex');
-    const { createHash } = await import('crypto');
     const sha = createHash('sha256').update(raw).digest('hex');
 
     await this.prisma.inviteToken.create({
@@ -188,7 +182,6 @@ export class AuthService {
   }
 
   async acceptInvite(dto: AcceptInviteDto) {
-    const { createHash } = await import('crypto');
     const sha = createHash('sha256').update(dto.token).digest('hex');
 
     const record = await this.prisma.inviteToken.findFirst({
@@ -198,26 +191,33 @@ export class AuthService {
       throw new BadRequestException('Invite link is invalid or has expired');
     }
 
+    // Atomically claim the invite token before creating the user.
+    // Concurrent requests both pass findFirst, but only one updateMany wins (count=1);
+    // the loser gets count=0 and a graceful 400 instead of a Prisma P2002 crash.
+    const claimed = await this.prisma.inviteToken.updateMany({
+      where: { id: record.id, usedAt: null, expiresAt: { gte: new Date() } },
+      data: { usedAt: new Date() },
+    });
+    if (claimed.count === 0) {
+      throw new BadRequestException('Invite link has already been used');
+    }
+
     const existing = await this.prisma.user.findUnique({
       where: { organizationId_email: { organizationId: record.organizationId, email: record.email } },
     });
     if (existing) throw new ConflictException('Account already exists. Please log in.');
 
     const passwordHash = await bcrypt.hash(dto.password, BCRYPT_ROUNDS);
-    const user = await this.prisma.$transaction(async (tx) => {
-      const created = await tx.user.create({
-        data: {
-          organizationId: record.organizationId,
-          email: record.email,
-          passwordHash,
-          firstName: dto.firstName,
-          lastName: dto.lastName,
-          role: record.role,
-          isActive: true,
-        },
-      });
-      await tx.inviteToken.update({ where: { id: record.id }, data: { usedAt: new Date() } });
-      return created;
+    const user = await this.prisma.user.create({
+      data: {
+        organizationId: record.organizationId,
+        email: record.email,
+        passwordHash,
+        firstName: dto.firstName,
+        lastName: dto.lastName,
+        role: record.role,
+        isActive: true,
+      },
     });
 
     return this.issueTokens(user.id, user.organizationId, user.email, user.role, user.tokenVersion);
@@ -231,20 +231,29 @@ export class AuthService {
     email: string,
     role: string,
     tokenVersion: number,
+    deleteTokenId?: string,
   ) {
     const payload: JwtPayload = { sub: userId, email, role, organizationId, tokenVersion };
     const accessToken = this.jwt.sign(payload);
 
     const raw = randomBytes(32).toString('hex');
-    const { createHash } = await import('crypto');
     const sha = createHash('sha256').update(raw).digest('hex');
 
-    await this.prisma.refreshToken.create({
-      data: {
-        userId,
-        tokenHash: sha,
-        expiresAt: new Date(Date.now() + REFRESH_EXPIRES_MS),
-      },
+    // Delete the old token and create the new one atomically so a mid-rotation
+    // DB failure never leaves the user with no valid session.
+    await this.prisma.$transaction(async (tx) => {
+      if (deleteTokenId) {
+        const deleted = await tx.refreshToken.deleteMany({ where: { id: deleteTokenId } });
+        // count=0 means a concurrent refresh already rotated this token — reject the duplicate
+        if (deleted.count === 0) throw new UnauthorizedException('Refresh token already rotated');
+      }
+      await tx.refreshToken.create({
+        data: {
+          userId,
+          tokenHash: sha,
+          expiresAt: new Date(Date.now() + REFRESH_EXPIRES_MS),
+        },
+      });
     });
 
     return { accessToken, refreshToken: raw };

@@ -68,6 +68,7 @@ export class NotificationsService {
   async notifyDueSoon() {
     const now = new Date();
     const in24h = new Date(now.getTime() + 24 * 60 * 60 * 1000);
+    const since = new Date(now.getTime() - 24 * 60 * 60 * 1000);
 
     const tasks = await this.prisma.task.findMany({
       where: {
@@ -76,39 +77,33 @@ export class NotificationsService {
         assigneeId: { not: null },
         parentTaskId: null,
       },
-      select: {
-        id: true,
-        title: true,
-        organizationId: true,
-        assigneeId: true,
-      },
+      select: { id: true, title: true, organizationId: true, assigneeId: true },
     });
 
-    for (const task of tasks) {
-      if (!task.assigneeId) continue;
+    if (tasks.length === 0) return;
 
-      const alreadyNotified = await this.prisma.notification.count({
-        where: {
-          userId: task.assigneeId,
-          taskId: task.id,
-          type: NotificationType.TASK_DUE_SOON,
-          createdAt: { gte: new Date(now.getTime() - 24 * 60 * 60 * 1000) },
-        },
-      });
+    // Batch-fetch already-notified task IDs in one query instead of N per-task COUNT calls
+    const taskIds = tasks.map((t) => t.id);
+    const recentlySent = await this.prisma.notification.findMany({
+      where: { taskId: { in: taskIds }, type: NotificationType.TASK_DUE_SOON, createdAt: { gte: since } },
+      select: { taskId: true },
+    });
+    const notifiedIds = new Set(recentlySent.map((n) => n.taskId));
 
-      if (alreadyNotified > 0) continue;
+    const toNotify = tasks.filter((t) => t.assigneeId && !notifiedIds.has(t.id));
+    if (toNotify.length === 0) return;
 
-      await this.create({
+    // Batch-insert all notifications in a single query
+    await this.prisma.notification.createMany({
+      data: toNotify.map((task) => ({
         organizationId: task.organizationId,
-        userId: task.assigneeId,
+        userId: task.assigneeId!,
         type: NotificationType.TASK_DUE_SOON,
         taskId: task.id,
         message: `"${task.title}" is due within 24 hours.`,
-      });
-    }
+      })),
+    });
 
-    if (tasks.length > 0) {
-      this.logger.log(`Due-soon notifications sent for ${tasks.length} task(s).`);
-    }
+    this.logger.log(`Due-soon notifications sent for ${toNotify.length} task(s).`);
   }
 }

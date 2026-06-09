@@ -145,7 +145,10 @@ export class ProjectsService {
     userId: string,
     userRole: Role,
   ) {
-    await this.assertAccess(organizationId, projectId, userId, userRole);
+    await this.assertAccess(organizationId, projectId, userId, userRole, [
+      Role.ADMIN,
+      Role.PROJECT_MANAGER,
+    ]);
 
     return this.prisma.project.update({
       where: { id: projectId },

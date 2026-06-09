@@ -1,4 +1,4 @@
-import { Injectable, NotFoundException, ForbiddenException, Logger } from '@nestjs/common';
+import { Injectable, NotFoundException, ForbiddenException, BadRequestException, Logger } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
 import { NotificationsService } from '../notifications/notifications.service';
 import { CreateTaskDto } from './dto/create-task.dto';
@@ -80,39 +80,41 @@ export class TasksService {
   ) {
     await this.assertProjectAccess(organizationId, projectId, creatorId, userRole);
 
-    // Default position to end of list
-    const maxPos = await this.prisma.task.aggregate({
-      where: { projectId, organizationId, parentTaskId: null },
-      _max: { position: true },
-    });
-    const position = dto.position ?? (maxPos._max.position ?? 0) + 1000;
+    // Wrap aggregate + create in a serializable transaction so concurrent requests
+    // cannot read the same MAX and produce duplicate task numbers.
+    const task = await this.prisma.$transaction(async (tx) => {
+      const maxPos = await tx.task.aggregate({
+        where: { projectId, organizationId, parentTaskId: null },
+        _max: { position: true },
+      });
+      const position = dto.position ?? (maxPos._max.position ?? 0) + 1000;
 
-    // Sequential number per project (covers both tasks and subtasks)
-    const maxNum = await this.prisma.task.aggregate({
-      where: { projectId, organizationId },
-      _max: { number: true },
-    });
-    const number = (maxNum._max.number ?? 0) + 1;
+      const maxNum = await tx.task.aggregate({
+        where: { projectId, organizationId },
+        _max: { number: true },
+      });
+      const number = (maxNum._max.number ?? 0) + 1;
 
-    const task = await this.prisma.task.create({
-      data: {
-        organizationId,
-        projectId,
-        number,
-        title: dto.title,
-        description: dto.description,
-        status: dto.status,
-        priority: dto.priority,
-        assigneeId: dto.assigneeId,
-        parentTaskId: dto.parentTaskId,
-        milestoneId: dto.milestoneId,
-        startDate: dto.startDate ? new Date(dto.startDate) : undefined,
-        dueDate: dto.dueDate ? new Date(dto.dueDate) : undefined,
-        position,
-        creatorId,
-      },
-      select: TASK_SELECT,
-    });
+      return tx.task.create({
+        data: {
+          organizationId,
+          projectId,
+          number,
+          title: dto.title,
+          description: dto.description,
+          status: dto.status,
+          priority: dto.priority,
+          assigneeId: dto.assigneeId,
+          parentTaskId: dto.parentTaskId,
+          milestoneId: dto.milestoneId,
+          startDate: dto.startDate ? new Date(dto.startDate) : undefined,
+          dueDate: dto.dueDate ? new Date(dto.dueDate) : undefined,
+          position,
+          creatorId,
+        },
+        select: TASK_SELECT,
+      });
+    }, { isolationLevel: 'Serializable' });
 
     if (dto.assigneeId && dto.assigneeId !== creatorId) {
       this.notifications.create({
@@ -254,11 +256,12 @@ export class TasksService {
       }).catch((err) => this.logger.error('Failed to create TASK_ASSIGNED notification', err));
     }
 
-    // Auto-complete the project when every task is DONE
+    // Auto-complete the project when every top-level task is DONE.
+    // Use parentTaskId:null to match the same denominator as the progress % shown on the project card.
     if (dto.status === TaskStatus.DONE) {
       const [total, done] = await Promise.all([
-        this.prisma.task.count({ where: { projectId: existing.projectId, organizationId } }),
-        this.prisma.task.count({ where: { projectId: existing.projectId, organizationId, status: TaskStatus.DONE } }),
+        this.prisma.task.count({ where: { projectId: existing.projectId, organizationId, parentTaskId: null } }),
+        this.prisma.task.count({ where: { projectId: existing.projectId, organizationId, parentTaskId: null, status: TaskStatus.DONE } }),
       ]);
       if (total > 0 && total === done) {
         await this.prisma.project.updateMany({
@@ -344,11 +347,23 @@ export class TasksService {
     userId: string,
     userRole: Role,
   ) {
+    if (taskId === dependsOnTaskId) {
+      throw new BadRequestException('A task cannot depend on itself');
+    }
+
     const task = await this.prisma.task.findFirst({
       where: { id: taskId, organizationId },
       select: { projectId: true },
     });
     if (!task) throw new NotFoundException('Task not found');
+
+    // Validate dependsOnTaskId belongs to the same org — prevents cross-tenant dependency links
+    const dependsOnTask = await this.prisma.task.findFirst({
+      where: { id: dependsOnTaskId, organizationId },
+      select: { id: true },
+    });
+    if (!dependsOnTask) throw new NotFoundException('Dependency task not found');
+
     await this.assertProjectAccess(organizationId, task.projectId, userId, userRole);
 
     return this.prisma.taskDependency.upsert({
