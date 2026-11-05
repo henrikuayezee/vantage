@@ -11,6 +11,11 @@ const D = (offsetDays: number): Date => {
 };
 
 async function main() {
+  // The passwords below are public, so these accounts must never reach a deployed database.
+  if (process.env.NODE_ENV === 'production') {
+    throw new Error('Refusing to seed demo accounts with NODE_ENV=production.');
+  }
+
   // ── Guard: skip if already seeded ──────────────────────────────────────────
   const existing = await prisma.user.count();
   if (existing > 1) {
