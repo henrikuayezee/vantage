@@ -30,7 +30,7 @@ pnpm dev
 | API | http://localhost:3001/api |
 | API docs (Swagger) | http://localhost:3001/docs |
 
-Sign in with one of these demo accounts, which exist only in your local seed data:
+Sign in with one of these demo accounts from the seed data:
 
 | Role | Email | Password |
 |---|---|---|
@@ -52,9 +52,9 @@ Emails such as invites and password resets only send once `RESEND_API_KEY` in `a
 - [Codebase guide](docs/CODEBASE_GUIDE.md): repository layout, environment variables and key decisions
 - [Architecture](docs/ARCHITECTURE.md)
 - [Product requirements](docs/PRD.md)
-- [Deployment guide](docs/DEPLOYMENT_GUIDE.md) and [runbook](docs/RUNBOOK.md). Vantage has not been deployed to production yet, so treat these as untested.
+- [Deployment guide](docs/DEPLOYMENT_GUIDE.md) and [runbook](docs/RUNBOOK.md). The Docker Compose route they describe has not been tested.
 - [Design handoff](docs/design-handoff/README.md): HTML reference for each screen, plus the design tokens
 
 ## Licence
 
-This code is private and has no open-source licence. Please ask Henry Quaye before sharing it further.
+This repository is public, but it has no open-source licence. You can read the code on GitHub. Please ask Henry Quaye before using, copying or redistributing it.
