@@ -14,6 +14,7 @@
     "unrs-resolver"
   ],
   "scripts": {
+    "setup:env": "node scripts/setup-env.mjs",
     "dev": "turbo dev",
     "build": "turbo build",
     "lint": "turbo lint",

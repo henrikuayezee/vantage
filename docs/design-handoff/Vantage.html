@@ -1,0 +1,815 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<title>Vantage — PM tool design</title>
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<link rel="stylesheet" href="tokens.css" />
+<link rel="preconnect" href="https://fonts.googleapis.com" />
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+<link href="https://fonts.googleapis.com/css2?family=Geist:wght@300;400;500;600;700&family=Geist+Mono:wght@400;500;600&display=swap" rel="stylesheet" />
+
+<script src="https://unpkg.com/react@18.3.1/umd/react.development.js" integrity="sha384-hD6/rw4ppMLGNu3tX5cjIb+uRZ7UkRJ6BPkLpg4hAu/6onKUg4lLsHAs9EBPT82L" crossorigin="anonymous"></script>
+<script src="https://unpkg.com/react-dom@18.3.1/umd/react-dom.development.js" integrity="sha384-u6aeetuaXnQ38mYT8rp6sbXaQe3NL9t+IBXmnYxwkUI2Hw4bsp2Wvmx4yRQF1uAm" crossorigin="anonymous"></script>
+<script src="https://unpkg.com/@babel/standalone@7.29.0/babel.min.js" integrity="sha384-m08KidiNqLdpJqLq95G/LEi8Qvjl/xUYll3QILypMoQ65QorJ9Lvtp2RXYGBFj1y" crossorigin="anonymous"></script>
+
+<script src="data.js"></script>
+
+<style>
+html, body, #root { height: 100%; margin: 0; padding: 0; }
+body { background: #f0eee9; font-family: 'Geist', 'Inter', -apple-system, system-ui, sans-serif; overflow: hidden; }
+#root { width: 100%; height: 100%; }
+* { box-sizing: border-box; }
+
+/* Override canvas bg */
+.dc-canvas-wrap { background: #f0eee9 !important; }
+
+/* App artboard clip */
+.v-artboard-host {
+  width: 100%; height: 100%; overflow: hidden;
+  position: relative; border-radius: 4px;
+}
+
+/* Foundations panel */
+.v-foundations {
+  width: 100%; height: 100%; padding: 32px 40px;
+  overflow: auto; background: var(--bg); color: var(--text);
+  font-family: var(--font-sans);
+}
+.v-foundations h2 { font-size: 11px; font-weight: 600; letter-spacing: 0.09em; text-transform: uppercase;
+  color: var(--text-muted); margin: 0 0 16px; padding-bottom: 10px; border-bottom: 1px solid var(--border); }
+.v-foundations section { margin-bottom: 48px; }
+.f-row { display: grid; grid-template-columns: 180px 1fr; gap: 28px; align-items: flex-start; }
+.f-note { font-size: 11.5px; color: var(--text-muted); line-height: 1.55; }
+.f-grid { display: grid; gap: 10px; }
+
+.f-brand { display: flex; align-items: center; gap: 28px; padding: 24px 28px;
+  background: linear-gradient(135deg, var(--primary-softer), transparent);
+  border: 1px solid var(--border); border-radius: 14px; }
+.f-brand-mark-xl { width: 80px; height: 80px; background: var(--bg); border-radius: 16px;
+  border: 1px solid var(--border); display: flex; align-items: center; justify-content: center;
+  box-shadow: var(--shadow-sm); }
+.f-brand-title { font-size: 34px; font-weight: 600; letter-spacing: -0.025em; margin: 0; color: var(--text); }
+.f-brand-tagline { font-size: 14px; color: var(--text-muted); margin-top: 3px; }
+.f-brand-meta { display: flex; gap: 18px; margin-top: 16px; font-family: var(--font-mono); font-size: 10.5px; color: var(--text-muted);
+  text-transform: uppercase; letter-spacing: 0.07em; }
+
+.f-swatch { padding: 10px 14px; border-radius: 9px; border: 1px solid var(--border); display: flex; gap: 12px; align-items: center; }
+.f-swatch-color { width: 34px; height: 34px; border-radius: 7px; flex: 0 0 auto; box-shadow: inset 0 0 0 1px rgba(0,0,0,0.06); }
+.f-swatch-label { font-size: 12px; font-weight: 500; color: var(--text); }
+.f-swatch-hex { font-family: var(--font-mono); font-size: 11px; color: var(--text-muted); }
+.f-swatch-token { font-family: var(--font-mono); font-size: 10px; color: var(--text-subtle); margin-top: 1px; }
+
+.f-type-row { display: flex; align-items: baseline; gap: 18px; padding: 11px 0; border-bottom: 1px solid var(--border); }
+.f-type-row:last-child { border-bottom: 0; }
+.f-type-specs { width: 200px; flex: 0 0 auto; font-family: var(--font-mono); font-size: 10.5px; color: var(--text-muted); line-height: 1.5; }
+.f-type-sample { color: var(--text); }
+
+.f-icon-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(72px, 1fr)); gap: 8px; }
+.f-icon-cell { padding: 12px 6px; border-radius: 8px; border: 1px solid var(--border); background: var(--bg);
+  display: flex; flex-direction: column; align-items: center; gap: 6px; cursor: default; }
+.f-icon-cell:hover { background: var(--surface); border-color: var(--primary); color: var(--primary); }
+.f-icon-cell span { font-family: var(--font-mono); font-size: 9px; color: var(--text-muted); text-align: center; }
+
+.f-comp { padding: 18px; border: 1px solid var(--border); border-radius: 10px; background: var(--bg); }
+.f-comp-label { font-family: var(--font-mono); font-size: 9.5px; color: var(--text-muted); letter-spacing: 0.08em;
+  text-transform: uppercase; margin-bottom: 12px; }
+.f-comp-row { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; }
+</style>
+
+<!-- Tweak defaults -->
+<script>
+const TWEAK_DEFAULTS = /*EDITMODE-BEGIN*/{
+  "theme": "light",
+  "role": "PROJECT_MANAGER",
+  "route": "pm-dashboard",
+  "sidebarCollapsed": false,
+  "accent": "#F97316",
+  "primary": "#0D7A75",
+  "density": "compact"
+}/*EDITMODE-END*/;
+</script>
+</head>
+<body>
+<div id="root"></div>
+
+<script type="text/babel" src="design-canvas.jsx"></script>
+<script type="text/babel" src="tweaks-panel.jsx"></script>
+<script type="text/babel" src="components/icons.jsx"></script>
+<script type="text/babel" src="components/primitives.jsx"></script>
+<script type="text/babel" src="components/app-shell.jsx"></script>
+<script type="text/babel" src="components/dashboards.jsx"></script>
+<script type="text/babel" src="components/project-views.jsx"></script>
+<script type="text/babel" src="components/aux-screens.jsx"></script>
+<script type="text/babel" src="components/empty-and-mobile.jsx"></script>
+
+<script type="text/babel" data-presets="env,react">
+const { useState, useCallback } = React;
+const {
+  DesignCanvas, DCSection, DCArtboard,
+  TweaksPanel, useTweaks, TweakSection, TweakRadio, TweakToggle, TweakColor, TweakSelect,
+  Icons, PeakMark, Avatar, AvatarStack, Badge, Button, IconButton,
+  PriorityBars, PriorityTag, StatusPill, StatusDot, ProgressBar, Kbd,
+  AppFrame,
+  PMDashboard, DevDashboard, AdminDashboard,
+  ProjectDetailPage, TaskDrawer,
+  SearchModal, NotificationsPanel, SettingsUsers,
+  LoginScreen, ResetPasswordScreen, AcceptInviteScreen,
+  EmptyProjects, EmptyTasks, EmptyNotifications, EmptySearch,
+  SkeletonDashboard, SkeletonList, SkeletonBoard,
+  MobileBoard, TabletDashboard,
+} = window;
+
+const D = window.VANTAGE_DATA;
+
+// ── Interactive app shell (main artboard) ────────────────────────────
+function InteractiveApp({ t }) {
+  const { theme, role, route, sidebarCollapsed: initCollapsed } = t;
+  const [collapsed, setCollapsed] = useState(initCollapsed);
+  const [currentRoute, setCurrentRoute] = useState(route);
+  const [projectTab, setProjectTab] = useState('list');
+  const [openTaskId, setOpenTaskId] = useState(null);
+  const [showNotifs, setShowNotifs] = useState(false);
+  const [showSearch, setShowSearch] = useState(false);
+
+  const user = role === 'ADMIN' ? D.users[6] : role === 'DEVELOPER' ? D.users[1] : D.users[0];
+  const project = D.projects[0]; // AUTH project
+
+  // Keyboard shortcut
+  React.useEffect(() => {
+    const h = (e) => {
+      if ((e.metaKey || e.ctrlKey) && e.key === 'k') { e.preventDefault(); setShowSearch(v => !v); }
+      if (e.key === 'Escape') { setShowSearch(false); setShowNotifs(false); setOpenTaskId(null); }
+    };
+    window.addEventListener('keydown', h);
+    return () => window.removeEventListener('keydown', h);
+  }, []);
+
+  // crumb + dashboard content
+  let crumbs = ['Dashboard'];
+  let mainView = null;
+
+  if (currentRoute === 'pm-dashboard') {
+    mainView = <PMDashboard user={user} />;
+    crumbs = ['Dashboard'];
+  } else if (currentRoute === 'dev-dashboard') {
+    mainView = <DevDashboard user={user} />;
+    crumbs = ['My work'];
+  } else if (currentRoute === 'admin-dashboard') {
+    mainView = <AdminDashboard user={user} />;
+    crumbs = ['Overview'];
+  } else if (currentRoute === 'projects') {
+    mainView = (
+      <div className="v-page">
+        <header className="v-page-head">
+          <div>
+            <h1 className="v-page-title">Projects</h1>
+            <p className="v-page-sub"><span className="v-mono v-caps" style={{ color: 'var(--text-muted)' }}>8 active</span></p>
+          </div>
+          <div className="v-page-actions">
+            <Button variant="primary" icon="Plus">New project</Button>
+          </div>
+        </header>
+        <div className="v-kpi-row" style={{ gridTemplateColumns: 'repeat(4, 1fr)' }}>
+          {[
+            { label: 'Active', value: 8 },
+            { label: 'On track', value: 5, pct: 62, tone: 'success' },
+            { label: 'At risk', value: 2, tone: 'warning' },
+            { label: 'Overdue tasks', value: 14, tone: 'error' },
+          ].map((k, i) => (
+            <div key={i} className="v-kpi">
+              <div className="v-kpi-label v-caps">{k.label}</div>
+              <div className="v-kpi-value-row">
+                <span className="v-kpi-value v-num">{k.value}</span>
+                {k.pct != null && <span className={'v-kpi-pct v-mono v-badge v-badge-' + (k.tone || 'neutral') + ' v-badge-soft'}>{k.pct}%</span>}
+              </div>
+            </div>
+          ))}
+        </div>
+        <window.PortfolioTableFull projects={D.projects} />
+      </div>
+    );
+    crumbs = ['Projects'];
+  } else if (currentRoute === 'project-detail') {
+    mainView = (
+      <div className="v-artboard-host" style={{ display: 'flex', height: '100%' }}>
+        <ProjectDetailPage
+          tab={projectTab}
+          onChangeTab={setProjectTab}
+          onOpenTask={(id) => setOpenTaskId(id)}
+          project={project}
+          focusedTaskId={openTaskId}
+        />
+        {openTaskId && (
+          <TaskDrawer taskId={openTaskId} onClose={() => setOpenTaskId(null)} />
+        )}
+      </div>
+    );
+    crumbs = ['Projects', project.name];
+    if (openTaskId) crumbs.push(openTaskId);
+  } else if (currentRoute === 'settings') {
+    mainView = <SettingsUsers />;
+    crumbs = ['Settings', 'People'];
+  } else if (currentRoute === 'inbox') {
+    mainView = (
+      <div className="v-page">
+        <header className="v-page-head">
+          <div><h1 className="v-page-title">Inbox</h1></div>
+        </header>
+        <div style={{ display: 'flex', justifyContent: 'center', paddingTop: 40 }}>
+          <EmptyNotifications />
+        </div>
+      </div>
+    );
+    crumbs = ['Inbox'];
+  } else {
+    mainView = <PMDashboard user={user} />;
+    crumbs = ['Dashboard'];
+  }
+
+  // Override route from tweaks
+  React.useEffect(() => {
+    setCurrentRoute(route);
+  }, [route]);
+
+  React.useEffect(() => {
+    setCollapsed(initCollapsed);
+  }, [initCollapsed]);
+
+  return (
+    <div className={'vantage-app v-frame ' + (theme === 'dark' ? 'theme-dark' : '')} style={{ width: '100%', height: '100%', position: 'relative' }}>
+      <AppFrame
+        theme={theme}
+        sidebarCollapsed={collapsed}
+        role={role}
+        currentRoute={currentRoute === 'project-detail' ? 'project-AUTH' : currentRoute.replace('-dashboard', 'home').replace('pm-dashboard', 'home')}
+        crumbs={crumbs}
+        onNavigate={(r) => {
+          if (r.startsWith('project-')) { setCurrentRoute('project-detail'); }
+          else if (r === 'home') {
+            if (role === 'DEVELOPER') setCurrentRoute('dev-dashboard');
+            else if (role === 'ADMIN') setCurrentRoute('admin-dashboard');
+            else setCurrentRoute('pm-dashboard');
+          }
+          else setCurrentRoute(r);
+          setOpenTaskId(null);
+          setShowNotifs(false);
+          setShowSearch(false);
+        }}
+        onOpenSearch={() => setShowSearch(true)}
+        onOpenNotifs={() => setShowNotifs(v => !v)}
+        onToggleCollapse={() => setCollapsed(v => !v)}
+        onToggleTheme={() => {}}
+        user={user}
+        unread={3}
+      >
+        {currentRoute === 'project-detail' ? mainView : <div className="v-main-scroll" style={{ height: '100%', overflow: 'auto' }}>{mainView}</div>}
+      </AppFrame>
+
+      {showNotifs && (
+        <div style={{ position: 'absolute', top: 50, right: 14, zIndex: 60 }}>
+          <NotificationsPanel onClose={() => setShowNotifs(false)} />
+        </div>
+      )}
+      {showSearch && (
+        <div style={{ position: 'absolute', inset: 0, zIndex: 100 }}>
+          <SearchModal onClose={() => setShowSearch(false)} />
+        </div>
+      )}
+    </div>
+  );
+}
+
+// ── Standalone auth artboard helper ──────────────────────────────────
+function AuthArtboard({ Screen, theme }) {
+  return (
+    <div className="v-artboard-host" style={{ borderRadius: 6 }}>
+      <Screen theme={theme} />
+    </div>
+  );
+}
+
+// ── Foundations artboard (tokens, type, icons, components) ───────────
+function FoundationsPanel({ theme }) {
+  const cls = 'v-foundations ' + (theme === 'dark' ? 'theme-dark' : '');
+  const SWATCHES = [
+    { label: 'Primary',    hex: '#0D7A75', token: '--primary',    },
+    { label: 'Pri hover',  hex: '#14B8A6', token: '--primary-hover' },
+    { label: 'Accent',     hex: '#F97316', token: '--accent',     },
+    { label: 'Text',       hex: '#1E293B', token: '--text',       },
+    { label: 'Muted',      hex: '#64748B', token: '--text-muted', },
+    { label: 'Border',     hex: '#E2E8F0', token: '--border',     },
+    { label: 'Surface',    hex: '#F8FAFC', token: '--surface',    },
+    { label: 'Background', hex: '#FFFFFF', token: '--bg',         },
+    { label: 'Success',    hex: '#16A34A', token: '--success',    },
+    { label: 'Warning',    hex: '#D97706', token: '--warning',    },
+    { label: 'Error',      hex: '#DC2626', token: '--error',      },
+    { label: 'Crit pri',   hex: '#DC2626', token: '--p-critical', },
+    { label: 'High pri',   hex: '#F97316', token: '--p-high',     },
+    { label: 'Med pri',    hex: '#F59E0B', token: '--p-medium',   },
+    { label: 'Low pri',    hex: '#64748B', token: '--p-low',      },
+  ];
+  const DARK_SWATCHES = [
+    { label: 'BG',         hex: '#0F172A', token: '--bg' },
+    { label: 'Surface',    hex: '#1E293B', token: '--surface' },
+    { label: 'Surf elev',  hex: '#273548', token: '--surface-2' },
+    { label: 'Border',     hex: '#334155', token: '--border' },
+    { label: 'Text',       hex: '#F1F5F9', token: '--text' },
+    { label: 'Muted',      hex: '#94A3B8', token: '--text-muted' },
+    { label: 'Primary',    hex: '#14B8A6', token: '--primary' },
+    { label: 'Accent',     hex: '#FB923C', token: '--accent' },
+  ];
+  const TYPE = [
+    { spec: '22px / 600 / -0.015em', sample: <span style={{ fontSize: 22, fontWeight: 600, letterSpacing: '-0.015em', lineHeight: 1.2 }}>Project dashboard</span>, label: 'Page title' },
+    { spec: '18px / 600 / -0.01em',  sample: <span style={{ fontSize: 18, fontWeight: 600, letterSpacing: '-0.01em',  lineHeight: 1.25 }}>Auth service refactor</span>, label: 'Section heading' },
+    { spec: '14px / 600',            sample: <span style={{ fontSize: 14, fontWeight: 600 }}>Widget title</span>, label: 'Widget title' },
+    { spec: '13px / 400 / normal',   sample: <span style={{ fontSize: 13 }}>Replace JWT signing with KMS-backed key rotation.</span>, label: 'Body / task title' },
+    { spec: '12px / 500 / normal',   sample: <span style={{ fontSize: 12, fontWeight: 500 }}>Maya Chen · Project Manager</span>, label: 'Label / meta' },
+    { spec: '11px / 400 / mono',     sample: <span style={{ fontSize: 11, fontFamily: 'var(--font-mono)' }}>AUTH-104 · May 26 · 8d est</span>, label: 'IDs / timestamps' },
+    { spec: '10px / 600 / 0.08em',   sample: <span style={{ fontSize: 10, fontWeight: 600, letterSpacing: '0.08em', textTransform: 'uppercase' }}>Section label</span>, label: 'Caps label' },
+    { spec: '9.5px / 400 / mono',    sample: <span style={{ fontSize: 9.5, fontFamily: 'var(--font-mono)' }}>v2.4.1 · SOC 2 Type II</span>, label: 'Fine print / chip' },
+  ];
+  const ICON_NAMES = ['Home','Inbox','Projects','Search','Bell','Plus','Filter','Sort',
+    'More','MoreH','Check','Flag','Clock','Link','At','MessageCircle','Paperclip','Eye',
+    'Lightning','Diamond','Branch','Folder','Board','List','Gantt','Settings','Building',
+    'Lock','Mail','ArrowRight','Trash','Alert','Moon','Sun','Chevron','Down'];
+  const STATUSES = ['BACKLOG','TODO','IN_PROGRESS','REVIEW','DONE'];
+  const PRIS = ['CRITICAL','HIGH','MEDIUM','LOW'];
+
+  return (
+    <div className={cls} style={{ background: theme === 'dark' ? 'var(--bg)' : undefined }}>
+
+      <section>
+        <h2>Brand mark</h2>
+        <div className="f-brand">
+          <div className="f-brand-mark-xl"><PeakMark size={48} /></div>
+          <div>
+            <div className="f-brand-title">Vantage</div>
+            <div className="f-brand-tagline">See farther. Ship faster.</div>
+            <div className="f-brand-meta">
+              <span>Geist Sans</span>
+              <span>·</span>
+              <span>Geist Mono</span>
+              <span>·</span>
+              <span>Jira density</span>
+              <span>·</span>
+              <span>Notion sidebar</span>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <section>
+        <h2>Color tokens — light mode</h2>
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(5, 1fr)', gap: 8 }}>
+          {SWATCHES.map(s => (
+            <div key={s.token} className="f-swatch">
+              <div className="f-swatch-color" style={{ background: s.hex, border: s.hex === '#FFFFFF' || s.hex === '#F8FAFC' || s.hex === '#E2E8F0' ? '1px solid var(--border)' : 'none' }} />
+              <div>
+                <div className="f-swatch-label">{s.label}</div>
+                <div className="f-swatch-hex">{s.hex}</div>
+                <div className="f-swatch-token">{s.token}</div>
+              </div>
+            </div>
+          ))}
+        </div>
+      </section>
+
+      <section>
+        <h2>Color tokens — dark mode</h2>
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 8, padding: 20, background: '#0F172A', borderRadius: 12 }}>
+          {DARK_SWATCHES.map(s => (
+            <div key={s.token} className="f-swatch" style={{ background: '#1E293B', border: '1px solid #334155' }}>
+              <div className="f-swatch-color" style={{ background: s.hex, border: '1px solid #334155' }} />
+              <div>
+                <div className="f-swatch-label" style={{ color: '#F1F5F9' }}>{s.label}</div>
+                <div className="f-swatch-hex" style={{ color: '#94A3B8' }}>{s.hex}</div>
+              </div>
+            </div>
+          ))}
+        </div>
+      </section>
+
+      <section>
+        <h2>Type scale — Geist Sans + Geist Mono</h2>
+        <div style={{ border: '1px solid var(--border)', borderRadius: 10, overflow: 'hidden' }}>
+          {TYPE.map((t, i) => (
+            <div key={i} className="f-type-row" style={{ padding: '12px 16px', borderBottom: i < TYPE.length - 1 ? '1px solid var(--border)' : 'none' }}>
+              <div className="f-type-specs">
+                <div style={{ fontWeight: 600, color: 'var(--text-muted)' }}>{t.label}</div>
+                <div>{t.spec}</div>
+              </div>
+              <div className="f-type-sample">{t.sample}</div>
+            </div>
+          ))}
+        </div>
+      </section>
+
+      <section>
+        <h2>Iconography — Lucide React (16px, stroke 1.7)</h2>
+        <div className="f-icon-grid">
+          {ICON_NAMES.map(name => {
+            const I = Icons[name];
+            if (!I) return null;
+            return (
+              <div key={name} className="f-icon-cell">
+                <I size={18} sw={1.7} />
+                <span>{name}</span>
+              </div>
+            );
+          })}
+        </div>
+      </section>
+
+      <section>
+        <h2>Components</h2>
+        <div style={{ display: 'grid', gap: 12 }}>
+          <div className="f-comp">
+            <div className="f-comp-label">Buttons</div>
+            <div className="f-comp-row">
+              <Button variant="primary" icon="Plus">New project</Button>
+              <Button variant="secondary" icon="Filter">Filter</Button>
+              <Button variant="ghost">Ghost</Button>
+              <Button variant="primary" size="sm" icon="Plus">Add task</Button>
+              <Button variant="secondary" size="sm">Compact</Button>
+              <Button variant="danger" size="sm">Delete</Button>
+            </div>
+          </div>
+          <div className="f-comp">
+            <div className="f-comp-label">Badges</div>
+            <div className="f-comp-row">
+              {['neutral','primary','accent','success','warning','error'].map(t => (
+                <Badge key={t} tone={t}>{t.charAt(0).toUpperCase() + t.slice(1)}</Badge>
+              ))}
+            </div>
+          </div>
+          <div className="f-comp">
+            <div className="f-comp-label">Status pills</div>
+            <div className="f-comp-row">
+              {STATUSES.map(s => <StatusPill key={s} status={s} />)}
+            </div>
+          </div>
+          <div className="f-comp">
+            <div className="f-comp-label">Priority tags</div>
+            <div className="f-comp-row">
+              {PRIS.map(p => <PriorityTag key={p} priority={p} />)}
+            </div>
+          </div>
+          <div className="f-comp">
+            <div className="f-comp-label">Avatars</div>
+            <div className="f-comp-row">
+              {D.users.slice(0, 5).map(u => <Avatar key={u.id} user={u} size={28} />)}
+              <AvatarStack users={D.users.slice(0, 6)} size={28} max={4} />
+            </div>
+          </div>
+          <div className="f-comp">
+            <div className="f-comp-label">Icon buttons</div>
+            <div className="f-comp-row">
+              {['Search','Bell','Filter','Sort','More','Plus','X','Settings'].map(n => (
+                <IconButton key={n} icon={n} label={n} />
+              ))}
+              <IconButton icon="Plus" tone="bordered" label="Bordered" />
+            </div>
+          </div>
+        </div>
+      </section>
+
+    </div>
+  );
+}
+
+// ── Empty / skeleton artboard ─────────────────────────────────────────
+function EmptySkeletonArtboard({ theme }) {
+  const [tab, setTab] = useState('empty-projects');
+  const TABS = [
+    ['empty-projects',      'No projects'],
+    ['empty-tasks',         'No tasks (Board)'],
+    ['empty-notifs',        'No notifications'],
+    ['empty-search',        'No results'],
+    ['sk-dashboard',        'Skeleton: dash'],
+    ['sk-list',             'Skeleton: list'],
+    ['sk-board',            'Skeleton: board'],
+  ];
+  return (
+    <div className={'vantage-app ' + (theme === 'dark' ? 'theme-dark' : '')}
+         style={{ width: '100%', height: '100%', display: 'flex', flexDirection: 'column', background: 'var(--bg)' }}>
+      <div style={{ display: 'flex', gap: 4, padding: '12px 16px', borderBottom: '1px solid var(--border)', flexWrap: 'wrap', flexShrink: 0 }}>
+        {TABS.map(([id, label]) => (
+          <button key={id} onClick={() => setTab(id)}
+            style={{ padding: '4px 10px', borderRadius: 6, border: '1px solid var(--border)', background: tab === id ? 'var(--primary)' : 'var(--bg)',
+              color: tab === id ? '#fff' : 'var(--text-muted)', font: 'inherit', fontSize: 11.5, fontWeight: 500, cursor: 'default' }}>
+            {label}
+          </button>
+        ))}
+      </div>
+      <div style={{ flex: 1, overflow: 'auto', position: 'relative' }}>
+        {tab === 'empty-projects' && <div style={{ display: 'flex', justifyContent: 'center', paddingTop: 48 }}><EmptyProjects /></div>}
+        {tab === 'empty-tasks'   && <EmptyTasks />}
+        {tab === 'empty-notifs'  && <div style={{ display: 'flex', justifyContent: 'center', paddingTop: 48 }}><EmptyNotifications /></div>}
+        {tab === 'empty-search'  && <div style={{ display: 'flex', justifyContent: 'center', paddingTop: 48 }}><EmptySearch /></div>}
+        {tab === 'sk-dashboard'  && <SkeletonDashboard />}
+        {tab === 'sk-list'       && <SkeletonList />}
+        {tab === 'sk-board'      && <SkeletonBoard />}
+      </div>
+    </div>
+  );
+}
+
+// ── Portfolio table — standalone for projects page ────────────────────
+window.PortfolioTableFull = function PortfolioTableFull({ projects }) {
+  const { Avatar, AvatarStack, ProgressBar, Badge, IconButton } = window;
+  return (
+    <div className="v-widget" style={{ overflow: 'hidden' }}>
+      <div style={{ padding: '12px 16px 10px', borderBottom: '1px solid var(--border)', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+        <div className="v-tabs-mini">
+          <button className="is-active">Active</button>
+          <button>All</button>
+          <button>Archived</button>
+        </div>
+        <div style={{ display: 'flex', gap: 6 }}>
+          <Button variant="secondary" size="sm" icon="Filter">Filter</Button>
+          <Button variant="secondary" size="sm" icon="Sort">Group by lead</Button>
+        </div>
+      </div>
+      <table className="v-table">
+        <thead>
+          <tr><th>Project</th><th>Lead</th><th>Team</th><th>Progress</th><th>Open</th><th>Due</th><th>Status</th><th></th></tr>
+        </thead>
+        <tbody>
+          {projects.map(p => (
+            <tr key={p.id}>
+              <td>
+                <div className="v-portfolio-name">
+                  <span className="v-portfolio-key v-mono" style={{ background: window.keyColor(p.key), width: 24, height: 24, fontSize: 10 }}>{p.key.slice(0,2)}</span>
+                  <div>
+                    <div className="v-portfolio-title">{p.name}</div>
+                    <div className="v-portfolio-meta v-mono">{p.id} · {window.formatDate(p.start)} → {window.formatDate(p.end)}</div>
+                  </div>
+                </div>
+              </td>
+              <td><Avatar user={D.byId(p.lead)} size={22} /></td>
+              <td><AvatarStack users={p.members.map(D.byId)} size={20} max={4} /></td>
+              <td style={{ minWidth: 140 }}>
+                <div className="v-portfolio-progress">
+                  <ProgressBar value={p.progress} tone={p.health === 'at-risk' ? 'warning' : 'primary'} height={5} />
+                  <span className="v-mono" style={{ fontSize: 11, color: 'var(--text-muted)' }}>{Math.round(p.progress * 100)}%</span>
+                </div>
+              </td>
+              <td><span className="v-num">{p.open}</span></td>
+              <td><span className="v-mono" style={{ color: 'var(--text-muted)' }}>{window.formatDate(p.end)}</span></td>
+              <td>
+                <Badge tone={p.status === 'at-risk' ? 'warning' : p.status === 'planning' ? 'neutral' : 'success'}>
+                  {p.status === 'at-risk' ? 'At risk' : p.status === 'planning' ? 'Planning' : 'On track'}
+                </Badge>
+              </td>
+              <td><IconButton icon="ArrowRight" label="Open" /></td>
+            </tr>
+          ))}
+        </tbody>
+      </table>
+    </div>
+  );
+};
+
+// ── Root app ─────────────────────────────────────────────────────────
+function App() {
+  const [t, setTweak] = useTweaks(TWEAK_DEFAULTS);
+
+  return (
+    <>
+      <DesignCanvas title="Vantage — Design System">
+
+        <DCSection id="app-shell" title="App shell · Interactive">
+          <DCArtboard id="main-app" label="Interactive app (1440 × 900)" width={1440} height={900}>
+            <InteractiveApp t={t} />
+          </DCArtboard>
+        </DCSection>
+
+        <DCSection id="foundations" title="Foundations">
+          <DCArtboard id="found-light" label="Tokens, type, icons, components — Light" width={1200} height={1800}>
+            <div className="v-artboard-host">
+              <FoundationsPanel theme="light" />
+            </div>
+          </DCArtboard>
+          <DCArtboard id="found-dark" label="Dark mode tokens" width={700} height={400}>
+            <div className="v-artboard-host" style={{ background: '#0F172A' }}>
+              <FoundationsPanel theme="dark" />
+            </div>
+          </DCArtboard>
+        </DCSection>
+
+        <DCSection id="auth" title="Authentication">
+          <DCArtboard id="auth-login-light" label="Login — Light" width={1280} height={800}>
+            <AuthArtboard Screen={LoginScreen} theme="light" />
+          </DCArtboard>
+          <DCArtboard id="auth-login-dark" label="Login — Dark" width={1280} height={800}>
+            <AuthArtboard Screen={LoginScreen} theme="dark" />
+          </DCArtboard>
+          <DCArtboard id="auth-reset" label="Reset password" width={1280} height={800}>
+            <AuthArtboard Screen={ResetPasswordScreen} theme="light" />
+          </DCArtboard>
+          <DCArtboard id="auth-invite" label="Accept invite" width={1280} height={800}>
+            <AuthArtboard Screen={AcceptInviteScreen} theme="light" />
+          </DCArtboard>
+        </DCSection>
+
+        <DCSection id="dashboards" title="Dashboards · Role-specific">
+          <DCArtboard id="pm-dash-light" label="PM dashboard — Light (1440)" width={1440} height={900}>
+            <div className={'vantage-app v-frame'} style={{ width: '100%', height: '100%', position: 'relative' }}>
+              <AppFrame theme="light" role="PROJECT_MANAGER" currentRoute="home" crumbs={['Dashboard']}
+                onNavigate={() => {}} onOpenSearch={() => {}} onOpenNotifs={() => {}}
+                onToggleCollapse={() => {}} onToggleTheme={() => {}} user={D.users[0]} unread={3}>
+                <div style={{ height: '100%', overflow: 'auto' }}><PMDashboard user={D.users[0]} /></div>
+              </AppFrame>
+            </div>
+          </DCArtboard>
+          <DCArtboard id="pm-dash-dark" label="PM dashboard — Dark" width={1440} height={900}>
+            <div className={'vantage-app v-frame theme-dark'} style={{ width: '100%', height: '100%' }}>
+              <AppFrame theme="dark" role="PROJECT_MANAGER" currentRoute="home" crumbs={['Dashboard']}
+                onNavigate={() => {}} onOpenSearch={() => {}} onOpenNotifs={() => {}}
+                onToggleCollapse={() => {}} onToggleTheme={() => {}} user={D.users[0]} unread={3}>
+                <div style={{ height: '100%', overflow: 'auto' }}><PMDashboard user={D.users[0]} /></div>
+              </AppFrame>
+            </div>
+          </DCArtboard>
+          <DCArtboard id="dev-dash" label="Developer dashboard" width={1440} height={900}>
+            <div className={'vantage-app v-frame'} style={{ width: '100%', height: '100%' }}>
+              <AppFrame theme="light" role="DEVELOPER" currentRoute="home" crumbs={['My work']}
+                onNavigate={() => {}} onOpenSearch={() => {}} onOpenNotifs={() => {}}
+                onToggleCollapse={() => {}} onToggleTheme={() => {}} user={D.users[1]} unread={3}>
+                <div style={{ height: '100%', overflow: 'auto' }}><DevDashboard user={D.users[1]} /></div>
+              </AppFrame>
+            </div>
+          </DCArtboard>
+          <DCArtboard id="admin-dash" label="Admin dashboard" width={1440} height={900}>
+            <div className={'vantage-app v-frame'} style={{ width: '100%', height: '100%' }}>
+              <AppFrame theme="light" role="ADMIN" currentRoute="home" crumbs={['Overview']}
+                onNavigate={() => {}} onOpenSearch={() => {}} onOpenNotifs={() => {}}
+                onToggleCollapse={() => {}} onToggleTheme={() => {}} user={D.users[6]} unread={1}>
+                <div style={{ height: '100%', overflow: 'auto' }}><AdminDashboard user={D.users[6]} /></div>
+              </AppFrame>
+            </div>
+          </DCArtboard>
+        </DCSection>
+
+        <DCSection id="project-views" title="Project detail · List / Board / Gantt">
+          {['list','board','gantt'].map(tabId => (
+            <DCArtboard key={tabId} id={'proj-' + tabId} label={tabId.charAt(0).toUpperCase() + tabId.slice(1) + ' view'} width={1440} height={900}>
+              <div className={'vantage-app v-frame'} style={{ width: '100%', height: '100%', position: 'relative' }}>
+                <AppFrame theme="light" role="PROJECT_MANAGER" currentRoute="project-AUTH" crumbs={['Projects', 'Auth service refactor', tabId.charAt(0).toUpperCase() + tabId.slice(1)]}
+                  onNavigate={() => {}} onOpenSearch={() => {}} onOpenNotifs={() => {}}
+                  onToggleCollapse={() => {}} onToggleTheme={() => {}} user={D.users[0]} unread={3}>
+                  <ProjectDetailPage tab={tabId} onChangeTab={() => {}} onOpenTask={() => {}} project={D.projects[0]} focusedTaskId={null} />
+                </AppFrame>
+              </div>
+            </DCArtboard>
+          ))}
+          <DCArtboard id="proj-list-drawer" label="List view + Task drawer" width={1440} height={900}>
+            <div className={'vantage-app v-frame'} style={{ width: '100%', height: '100%', position: 'relative' }}>
+              <AppFrame theme="light" role="PROJECT_MANAGER" currentRoute="project-AUTH"
+                crumbs={['Projects', 'Auth service refactor', 'AUTH-104']}
+                onNavigate={() => {}} onOpenSearch={() => {}} onOpenNotifs={() => {}}
+                onToggleCollapse={() => {}} onToggleTheme={() => {}} user={D.users[0]} unread={3}>
+                <div style={{ position: 'relative', height: '100%', overflow: 'hidden', display: 'flex' }}>
+                  <ProjectDetailPage tab="list" onChangeTab={() => {}} onOpenTask={() => {}} project={D.projects[0]} focusedTaskId="AUTH-104" />
+                  <TaskDrawer taskId="AUTH-104" onClose={() => {}} />
+                </div>
+              </AppFrame>
+            </div>
+          </DCArtboard>
+          <DCArtboard id="proj-list-drawer-dark" label="List view + Task drawer — Dark" width={1440} height={900}>
+            <div className={'vantage-app v-frame theme-dark'} style={{ width: '100%', height: '100%', position: 'relative' }}>
+              <AppFrame theme="dark" role="PROJECT_MANAGER" currentRoute="project-AUTH"
+                crumbs={['Projects', 'Auth service refactor', 'AUTH-104']}
+                onNavigate={() => {}} onOpenSearch={() => {}} onOpenNotifs={() => {}}
+                onToggleCollapse={() => {}} onToggleTheme={() => {}} user={D.users[0]} unread={3}>
+                <div style={{ position: 'relative', height: '100%', overflow: 'hidden', display: 'flex' }}>
+                  <ProjectDetailPage tab="list" onChangeTab={() => {}} onOpenTask={() => {}} project={D.projects[0]} focusedTaskId="AUTH-104" />
+                  <TaskDrawer taskId="AUTH-104" onClose={() => {}} />
+                </div>
+              </AppFrame>
+            </div>
+          </DCArtboard>
+        </DCSection>
+
+        <DCSection id="panels" title="Panels · Search / Notifications">
+          <DCArtboard id="search" label="Global search" width={800} height={600}>
+            <div className={'vantage-app theme-light'} style={{ width: '100%', height: '100%', background: 'var(--surface)', position: 'relative', display: 'flex', alignItems: 'flex-start', justifyContent: 'center', paddingTop: 60 }}>
+              <SearchModal onClose={() => {}} />
+            </div>
+          </DCArtboard>
+          <DCArtboard id="search-dark" label="Global search — Dark" width={800} height={600}>
+            <div className={'vantage-app theme-dark'} style={{ width: '100%', height: '100%', background: 'var(--surface)', position: 'relative', display: 'flex', alignItems: 'flex-start', justifyContent: 'center', paddingTop: 60 }}>
+              <SearchModal onClose={() => {}} />
+            </div>
+          </DCArtboard>
+          <DCArtboard id="notifs" label="Notifications" width={500} height={580}>
+            <div className={'vantage-app theme-light'} style={{ width: '100%', height: '100%', background: 'var(--surface)', display: 'flex', alignItems: 'flex-start', justifyContent: 'center', paddingTop: 40 }}>
+              <NotificationsPanel />
+            </div>
+          </DCArtboard>
+          <DCArtboard id="notifs-dark" label="Notifications — Dark" width={500} height={580}>
+            <div className={'vantage-app theme-dark'} style={{ width: '100%', height: '100%', background: 'var(--surface)', display: 'flex', alignItems: 'flex-start', justifyContent: 'center', paddingTop: 40 }}>
+              <NotificationsPanel />
+            </div>
+          </DCArtboard>
+        </DCSection>
+
+        <DCSection id="settings" title="Settings">
+          <DCArtboard id="settings-users" label="Settings · People" width={1440} height={900}>
+            <div className={'vantage-app v-frame'} style={{ width: '100%', height: '100%' }}>
+              <AppFrame theme="light" role="ADMIN" currentRoute="settings" crumbs={['Settings', 'People']}
+                onNavigate={() => {}} onOpenSearch={() => {}} onOpenNotifs={() => {}}
+                onToggleCollapse={() => {}} onToggleTheme={() => {}} user={D.users[6]} unread={1}>
+                <div style={{ height: '100%', overflow: 'auto' }}><SettingsUsers /></div>
+              </AppFrame>
+            </div>
+          </DCArtboard>
+          <DCArtboard id="settings-users-dark" label="Settings · People — Dark" width={1440} height={900}>
+            <div className={'vantage-app v-frame theme-dark'} style={{ width: '100%', height: '100%' }}>
+              <AppFrame theme="dark" role="ADMIN" currentRoute="settings" crumbs={['Settings', 'People']}
+                onNavigate={() => {}} onOpenSearch={() => {}} onOpenNotifs={() => {}}
+                onToggleCollapse={() => {}} onToggleTheme={() => {}} user={D.users[6]} unread={1}>
+                <div style={{ height: '100%', overflow: 'auto' }}><SettingsUsers /></div>
+              </AppFrame>
+            </div>
+          </DCArtboard>
+        </DCSection>
+
+        <DCSection id="empty-skeleton" title="Empty states + Skeletons">
+          <DCArtboard id="empty-sk-light" label="All empty states + skeletons — Light" width={1100} height={700}>
+            <div className="v-artboard-host">
+              <EmptySkeletonArtboard theme="light" />
+            </div>
+          </DCArtboard>
+          <DCArtboard id="empty-sk-dark" label="All empty states + skeletons — Dark" width={1100} height={700}>
+            <div className="v-artboard-host">
+              <EmptySkeletonArtboard theme="dark" />
+            </div>
+          </DCArtboard>
+        </DCSection>
+
+        <DCSection id="mobile" title="Mobile + Tablet reference">
+          <DCArtboard id="mobile-board" label="Mobile · Kanban (390 × 844)" width={430} height={900}>
+            <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', width: '100%', height: '100%', padding: 20, background: '#f0eee9' }}>
+              <MobileBoard />
+            </div>
+          </DCArtboard>
+          <DCArtboard id="mobile-board-dark" label="Mobile · Kanban — Dark" width={430} height={900}>
+            <div className="theme-dark" style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', width: '100%', height: '100%', padding: 20, background: '#0a0f1e' }}>
+              <div className="vantage-app theme-dark"><MobileBoard /></div>
+            </div>
+          </DCArtboard>
+          <DCArtboard id="tablet-dash" label="Tablet · PM Dashboard (834 × 1112)" width={900} height={1150}>
+            <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'flex-start', width: '100%', height: '100%', padding: 20, background: '#f0eee9' }}>
+              <TabletDashboard />
+            </div>
+          </DCArtboard>
+        </DCSection>
+
+      </DesignCanvas>
+
+      <TweaksPanel defaults={TWEAK_DEFAULTS} onTweaksChange={setTweak}>
+        <TweakSection label="Theme">
+          <TweakRadio id="theme" options={['light','dark']} />
+        </TweakSection>
+        <TweakSection label="Role (interactive app)">
+          <TweakSelect id="role" options={['PROJECT_MANAGER','DEVELOPER','ADMIN']} />
+        </TweakSection>
+        <TweakSection label="View">
+          <TweakSelect id="route" options={['pm-dashboard','dev-dashboard','admin-dashboard','projects','project-detail','settings','inbox']} />
+        </TweakSection>
+        <TweakSection label="Sidebar">
+          <TweakToggle id="sidebarCollapsed" label="Collapsed" />
+        </TweakSection>
+        <TweakSection label="Brand color">
+          <TweakColor id="primary" options={['#0D7A75','#1D4ED8','#7C3AED','#DB2777','#059669']} />
+        </TweakSection>
+        <TweakSection label="Accent color">
+          <TweakColor id="accent" options={['#F97316','#FBBF24','#EC4899','#06B6D4','#84CC16']} />
+        </TweakSection>
+      </TweaksPanel>
+    </>
+  );
+}
+
+ReactDOM.createRoot(document.getElementById('root')).render(<App />);
+</script>
+
+<template id="__bundler_thumbnail">
+  <svg viewBox="0 0 120 80" xmlns="http://www.w3.org/2000/svg">
+    <rect width="120" height="80" fill="#F8FAFC"/>
+    <rect width="24" height="80" fill="#0D7A75" opacity="0.08"/>
+    <rect x="2" y="14" width="20" height="4" rx="2" fill="#0D7A75" opacity="0.4"/>
+    <rect x="2" y="22" width="20" height="4" rx="2" fill="#0D7A75" opacity="0.15"/>
+    <rect x="2" y="30" width="20" height="4" rx="2" fill="#0D7A75" opacity="0.15"/>
+    <rect x="30" y="8" width="80" height="14" rx="3" fill="#0D7A75" opacity="0.1"/>
+    <rect x="30" y="26" width="36" height="26" rx="3" fill="#E2E8F0"/>
+    <rect x="70" y="26" width="36" height="26" rx="3" fill="#E2E8F0"/>
+    <rect x="30" y="56" width="76" height="18" rx="3" fill="#E2E8F0"/>
+    <path d="M10 52 L13 46 L16 50 L19 44 L22 52" stroke="#0D7A75" stroke-width="1.4" fill="none" stroke-linejoin="round"/>
+    <circle cx="19" cy="44" r="2" fill="#F97316"/>
+  </svg>
+</template>
+</body>
+</html>
